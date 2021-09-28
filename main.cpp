@@ -147,9 +147,12 @@ void render(Screen& screen, const std::vector<Sphere>& spheres,
 			float intensity = lighting(sources, P, N);
 			assert(!(intensity<0) && !(1<intensity));
 			color = Pixel {
-				static_cast<uint8_t>(std::round(closest.color.r * intensity)),
-				static_cast<uint8_t>(std::round(closest.color.g * intensity)),
-				static_cast<uint8_t>(std::round(closest.color.b * intensity)),
+				static_cast<uint8_t>(
+				  std::round(closest.color.r * intensity)),
+				static_cast<uint8_t>(
+				  std::round(closest.color.g * intensity)),
+				static_cast<uint8_t>(
+				  std::round(closest.color.b * intensity)),
 			};
 		}
 
@@ -157,26 +160,77 @@ void render(Screen& screen, const std::vector<Sphere>& spheres,
 	}
 }
 
+void scene_update(std::vector<Sphere>& spheres) {
+	std::vector<Vector> fields {
+		{0,  0, 2},
+		{1, -1, 3},
+		{1,  1, 4},
+	};
+	for (Sphere& sphere : spheres) {
+		if (sphere.fixed)
+			continue;
+		/* update position from velocity */
+		sphere.center = sphere.center + 0.01*sphere.velocity;
+		/* update velocity based on a field */
+		for (Vector field : fields) {
+			Vector d = field - sphere.center;
+			float dot = d.dot(d);
+			float len = std::sqrt(dot);
+			d = d / len; /* normalize */
+			if (len < sphere.radius) { /* bound below */
+				len = sphere.radius;
+				dot = len*len;
+			}
+			sphere.velocity = sphere.velocity + 0.3f/dot*d;
+		}
+	}
+}
+
 int main() {
-	int w = 2560, h = 1440;
+	int w = 640, h = 360;
 	Screen screen {h, w};
 	std::vector<Sphere> spheres {
-		Sphere {
-			.center={0, 0, 4},
-			.velocity={0, 0, 0},
-			.radius=1,
-			.color={255,   0,   0},
-			.fixed=0,
+		{
+		  .center={.1, .1, 4},
+		  .velocity={0, 0, 0},
+		  .radius=0.2,
+		  .color={255,   0,   0},
+		  .fixed=0,
+		},
+		{
+		  .center={0, 0, 2},
+		  .velocity={0, 0, 0},
+		  .radius=0.1,
+		  .color={255,   255,   255},
+		  .fixed=1,
+		},
+		{
+		  .center={1,  -1, 3},
+		  .velocity={0, 0, 0},
+		  .radius=0.1,
+		  .color={255,   255,   255},
+		  .fixed=1,
+		},
+		{
+		  .center={1,   1, 4},
+		  .velocity={0, 0, 0},
+		  .radius=0.1,
+		  .color={255,   255,   255},
+		  .fixed=1,
 		},
 	};
 	Viewport viewport = {
-		.scaling_factor = 1./(w<h? w: h),
+		.scaling_factor = 1.f/(w<h? w: h),
 		.distance = 1,
 	};
 	Vector camera {0, 0, 0};
 	std::vector<Light> sources {
 		{.type=LIGHT_DIRECTIONAL, .intensity=1, .direction={-1, 0, -1}},
 	};
-	render(screen, spheres, viewport, camera, sources);
-	screen.dump();
+	for (int i=0, n=1000; i<n; ++i) {
+		render(screen, spheres, viewport, camera, sources);
+		screen.dump();
+		scene_update(spheres);
+		std::cerr << i << "/" << n << std::endl;
+	}
 }
